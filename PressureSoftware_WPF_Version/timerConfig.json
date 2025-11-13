@@ -1,0 +1,9 @@
+﻿{
+  "Columns": 5,
+  "TimerDurationSeconds": 7200,
+  "TimerWidth": 80,
+  "TimerHeight": 40,
+  "DefaultInputMode": "TripleInput"
+}
+
+

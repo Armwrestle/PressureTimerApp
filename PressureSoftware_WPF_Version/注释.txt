@@ -1,0 +1,6 @@
+﻿//通用模式：General;双输入框模式：DoubleInput;三输入框模式：TripleInput
+  //"CustomDurations": {
+  //  "A-01": 1800,
+  //  "A-02": 2700,
+  //  "B-01": 7200
+  //}
