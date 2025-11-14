@@ -12,6 +12,8 @@ namespace PressureTimerApp
         private readonly CountdownTimerManager _timerManager;
         private TimerGridConfig _config;
         private TimerPositionMapper _positionMapper;
+        private OracleDataAccess _oracleDataAccess;
+        private bool _databaseEnabled = false;
 
         private readonly Dictionary<string, TimerControl> _timerControls = new Dictionary<string, TimerControl>();
         private readonly Dictionary<char, LetterRow> _letterRows = new Dictionary<char, LetterRow>();
@@ -32,15 +34,56 @@ namespace PressureTimerApp
 
             _timerManager = new CountdownTimerManager();
             LoadConfiguration();
+            InitializeDatabase();
             InitializePositionMapper();
             InitializeTimerGrid();
 
             // 设置默认输入模式
-            //cmbInputMode.SelectedIndex = 0;
+            cmbInputMode.SelectedIndex = 0;
             UpdateInputModeVisibility();
 
             // 监听窗口大小变化
             this.SizeChanged += MainWindow_SizeChanged;
+        }
+
+        private void InitializeDatabase()
+        {
+            try
+            {
+                if (_config?.DatabaseConfig != null && !string.IsNullOrEmpty(_config.DatabaseConfig.ConnectionString))
+                {
+                    _oracleDataAccess = new OracleDataAccess(
+                        _config.DatabaseConfig.ConnectionString,
+                        _config.DatabaseConfig.TableName);
+
+                    // 测试数据库连接
+                    if (_oracleDataAccess.TestConnection())
+                    {
+                        // 确保表存在
+                        if (_oracleDataAccess.EnsureTableExists())
+                        {
+                            _databaseEnabled = true;
+                            UpdateStatus("数据库连接成功");
+                        }
+                        else
+                        {
+                            UpdateStatus("数据库表创建失败");
+                        }
+                    }
+                    else
+                    {
+                        UpdateStatus("数据库连接失败");
+                    }
+                }
+                else
+                {
+                    UpdateStatus("未配置数据库连接");
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"数据库初始化失败: {ex.Message}");
+            }
         }
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -60,31 +103,6 @@ namespace PressureTimerApp
         {
             _config = ConfigManager.LoadConfig();
             UpdateDurationInfo();
-
-            // 根据配置文件设置默认输入模式
-            if (!string.IsNullOrEmpty(_config.DefaultInputMode))
-            {
-                int selectedIndex = 0; // 默认值
-
-                // 使用传统的 switch 语句替代 switch 表达式
-                switch (_config.DefaultInputMode)
-                {
-                    case "General":
-                        selectedIndex = 0;
-                        break;
-                    case "DoubleInput":
-                        selectedIndex = 1;
-                        break;
-                    case "TripleInput":
-                        selectedIndex = 2;
-                        break;
-                    default:
-                        selectedIndex = 0;
-                        break;
-                }
-
-                cmbInputMode.SelectedIndex = selectedIndex;
-            }
         }
 
         private void UpdateDurationInfo()
@@ -270,7 +288,7 @@ namespace PressureTimerApp
                 return;
             }
 
-            StartTimerByCode(timerCode, "");
+            StartTimerByCode(timerCode, "", "");
             txtTimerCodeGeneral.Clear();
             txtTimerCodeGeneral.Focus();
         }
@@ -287,7 +305,7 @@ namespace PressureTimerApp
                 return;
             }
 
-            StartTimerByCode(timerCode, barcode);
+            StartTimerByCode(timerCode, barcode, "");
             txtTimerCodeDouble.Clear();
             txtBarcodeDouble.Clear();
             txtBarcodeDouble.Focus();
@@ -307,10 +325,10 @@ namespace PressureTimerApp
             }
 
             // 启动第一个计时器
-            StartTimerByCode(timerCode1, barcode);
+            StartTimerByCode(timerCode1, barcode, timerCode2);
 
             // 启动第二个计时器
-            StartTimerByCode(timerCode2, barcode);
+            StartTimerByCode(timerCode2, barcode, timerCode1);
 
             txtTimerCodeTriple.Clear();
             txtTimerCodeTriple2.Clear();
@@ -318,7 +336,7 @@ namespace PressureTimerApp
             txtBarcodeTriple.Focus();
         }
 
-        private void StartTimerByCode(string timerCode, string barcode)
+        private void StartTimerByCode(string timerCode, string barcode, string timerCode2)
         {
             // 验证编码格式
             if (!_positionMapper.IsValidCode(timerCode))
@@ -345,10 +363,10 @@ namespace PressureTimerApp
             }
 
             // 启动计时器
-            StartTimerAtPosition(timerCode, durationSeconds, barcode);
+            StartTimerAtPosition(timerCode, durationSeconds, barcode, timerCode2);
         }
 
-        private void StartTimerAtPosition(string timerCode, int durationSeconds, string barcode)
+        private void StartTimerAtPosition(string timerCode, int durationSeconds, string barcode, string timerCode2)
         {
             try
             {
@@ -364,6 +382,12 @@ namespace PressureTimerApp
 
                     var timeSpan = TimeSpan.FromSeconds(durationSeconds);
                     UpdateStatus($"已启动计时器: {timerCode} | 条码: {barcode} | 时长: {durationSeconds}秒 ({timeSpan:hh\\:mm\\:ss})");
+
+                    // 在双输入框或三输入框模式下，将记录写入数据库
+                    if (_currentInputMode == InputMode.DoubleInput || _currentInputMode == InputMode.TripleInput)
+                    {
+                        SaveToDatabase(timerCode, barcode, timerCode2, durationSeconds);
+                    }
                 }
                 else
                 {
@@ -373,6 +397,42 @@ namespace PressureTimerApp
             catch (Exception ex)
             {
                 UpdateStatus($"启动计时器失败: {ex.Message}");
+            }
+        }
+
+        private void SaveToDatabase(string timerCode1, string barcode, string timerCode2, int durationSeconds)
+        {
+            if (!_databaseEnabled || _oracleDataAccess == null)
+            {
+                UpdateStatus("数据库未启用，跳过记录保存");
+                return;
+            }
+
+            try
+            {
+                var record = new TimerRecord
+                {
+                    Barcode = barcode,
+                    TimerCode1 = timerCode1,
+                    TimerCode2 = timerCode2,
+                    DurationSeconds = durationSeconds,
+                    InputMode = _currentInputMode.ToString()
+                };
+
+                bool success = _oracleDataAccess.InsertTimerRecord(record);
+                if (success)
+                {
+                    UpdateStatus($"记录已保存到数据库: {barcode} - {timerCode1}" +
+                                (string.IsNullOrEmpty(timerCode2) ? "" : $" - {timerCode2}"));
+                }
+                else
+                {
+                    UpdateStatus("数据库记录保存失败");
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"保存到数据库时出错: {ex.Message}");
             }
         }
 
