@@ -107,6 +107,7 @@
     <Compile Include="Controller\TimerPositionMapper.cs" />
     <Compile Include="Model\TimerPosition.cs" />
     <Compile Include="Model\TimerRecord.cs" />
+    <Compile Include="Model\WorkstationSequence.cs" />
     <Compile Include="Service\CountdownTimer.cs" />
     <Compile Include="Service\OracleDataAccess.cs" />
     <Page Include="Controller\LetterRow.xaml">

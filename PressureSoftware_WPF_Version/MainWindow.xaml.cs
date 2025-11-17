@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Oracle.ManagedDataAccess.Client;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -14,6 +15,7 @@ namespace PressureTimerApp
         private TimerPositionMapper _positionMapper;
         private OracleDataAccess _oracleDataAccess;
         private bool _databaseEnabled = false;
+        private bool _workstationValid = false;
 
         private readonly Dictionary<string, TimerControl> _timerControls = new Dictionary<string, TimerControl>();
         private readonly Dictionary<char, LetterRow> _letterRows = new Dictionary<char, LetterRow>();
@@ -34,16 +36,23 @@ namespace PressureTimerApp
 
             _timerManager = new CountdownTimerManager();
             LoadConfiguration();
+
+            // 先初始化数据库和验证工站
             InitializeDatabase();
-            InitializePositionMapper();
-            InitializeTimerGrid();
 
-            // 设置默认输入模式
-            cmbInputMode.SelectedIndex = 0;
-            UpdateInputModeVisibility();
+            // 只有工站验证通过后才继续初始化其他组件
+            if (_workstationValid)
+            {
+                InitializePositionMapper();
+                InitializeTimerGrid();
 
-            // 监听窗口大小变化
-            this.SizeChanged += MainWindow_SizeChanged;
+                // 设置默认输入模式
+                cmbInputMode.SelectedIndex = 0;
+                UpdateInputModeVisibility();
+
+                // 监听窗口大小变化
+                this.SizeChanged += MainWindow_SizeChanged;
+            }
         }
 
         private void InitializeDatabase()
@@ -54,36 +63,92 @@ namespace PressureTimerApp
                 {
                     _oracleDataAccess = new OracleDataAccess(
                         _config.DatabaseConfig.ConnectionString,
-                        _config.DatabaseConfig.TableName);
+                        _config.DatabaseConfig.TableName,
+                        _config.DatabaseConfig.StationValidationTable);
 
                     // 测试数据库连接
                     if (_oracleDataAccess.TestConnection())
                     {
+                        // 获取数据库信息
+                        string dbInfo = _oracleDataAccess.GetDatabaseInfo();
+                        UpdateStatus($"数据库连接成功 - {dbInfo}");
+
                         // 确保表存在
                         if (_oracleDataAccess.EnsureTableExists())
                         {
                             _databaseEnabled = true;
-                            UpdateStatus("数据库连接成功");
+                            UpdateStatus($"数据库表 {_config.DatabaseConfig.TableName} 准备就绪");
+
+                            // 验证工站配置 - 如果验证失败，直接结束程序
+                            ValidateWorkstation();
                         }
                         else
                         {
-                            UpdateStatus("数据库表创建失败");
+                            UpdateStatus("数据库表创建失败，数据库记录功能将不可用");
                         }
                     }
                     else
                     {
-                        UpdateStatus("数据库连接失败");
+                        UpdateStatus("数据库连接测试失败，请检查连接字符串和网络连接");
                     }
                 }
                 else
                 {
-                    UpdateStatus("未配置数据库连接");
+                    UpdateStatus("未配置数据库连接，数据库记录功能将不可用");
                 }
             }
             catch (Exception ex)
             {
                 UpdateStatus($"数据库初始化失败: {ex.Message}");
             }
+        }
+
+        private void ValidateWorkstation()
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_config.Workstation))
+                {
+                    ShowErrorAndExit("配置文件中未设置工站站点");
+                }
+
+                // 验证工站是否在数据库中存在
+                bool isValid = _oracleDataAccess.ValidateWorkstation(_config.Workstation);
+
+                if (isValid)
+                {
+                    _workstationValid = true;
+                    UpdateStatus($"工站验证成功: {_config.Workstation}");
+
+                    // 显示有效的工站列表
+                    var validWorkstations = _oracleDataAccess.GetValidWorkstations();
+                    if (validWorkstations.Any())
+                    {
+                        UpdateStatus($"有效工站列表: {string.Join(", ", validWorkstations)}");
+                    }
+                }
+                else
+                {
+                    // 获取有效的工站列表用于错误信息
+                    var validWorkstations = _oracleDataAccess.GetValidWorkstations();
+                    string validStationsText = validWorkstations.Any()
+                        ? string.Join("\n", validWorkstations)
+                        : "无有效工站配置";
+
+                    ShowErrorAndExit($"工站配置错误: {_config.Workstation} 不是有效工站\n\n有效工站列表:\n{validStationsText}");
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowErrorAndExit($"工站验证失败: {ex.Message}");
+            }
+        }
+
+        private void ShowErrorAndExit(string errorMessage)
+        {
+            MessageBox.Show(errorMessage, "配置错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            Application.Current.Shutdown();
+            Environment.Exit(1);
         }
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -103,6 +168,9 @@ namespace PressureTimerApp
         {
             _config = ConfigManager.LoadConfig();
             UpdateDurationInfo();
+
+            // 显示当前工站配置
+            UpdateStatus($"当前工站: {_config.Workstation}");
         }
 
         private void UpdateDurationInfo()
@@ -324,11 +392,36 @@ namespace PressureTimerApp
                 return;
             }
 
+            // 验证两个计时器编码
+            if (!_positionMapper.IsValidCode(timerCode1))
+            {
+                UpdateStatus($"无效的计时器编码: {timerCode1}");
+                return;
+            }
+
+            if (!_positionMapper.IsValidCode(timerCode2))
+            {
+                UpdateStatus($"无效的计时器编码: {timerCode2}");
+                return;
+            }
+
+            // 获取目标时长（秒）
+            int durationSeconds = _config.TimerDurationSeconds;
+
+            // 检查是否有自定义时长（使用第一个计时器的配置）
+            if (_config.CustomDurations != null && _config.CustomDurations.ContainsKey(timerCode1))
+            {
+                durationSeconds = _config.CustomDurations[timerCode1];
+            }
+
             // 启动第一个计时器
-            StartTimerByCode(timerCode1, barcode, timerCode2);
+            StartTimerAtPosition(timerCode1, durationSeconds, barcode);
 
             // 启动第二个计时器
-            StartTimerByCode(timerCode2, barcode, timerCode1);
+            StartTimerAtPosition(timerCode2, durationSeconds, barcode);
+
+            // 保存一条包含两个计时器信息的数据库记录
+            SaveToDatabase(timerCode1, barcode, timerCode2, durationSeconds);
 
             txtTimerCodeTriple.Clear();
             txtTimerCodeTriple2.Clear();
@@ -363,10 +456,16 @@ namespace PressureTimerApp
             }
 
             // 启动计时器
-            StartTimerAtPosition(timerCode, durationSeconds, barcode, timerCode2);
+            StartTimerAtPosition(timerCode, durationSeconds, barcode);
+
+            // 只有在双输入框模式下才保存数据库记录（三输入框模式在外部处理）
+            if (_currentInputMode == InputMode.DoubleInput)
+            {
+                SaveToDatabase(timerCode, barcode, timerCode2, durationSeconds);
+            }
         }
 
-        private void StartTimerAtPosition(string timerCode, int durationSeconds, string barcode, string timerCode2)
+        private void StartTimerAtPosition(string timerCode, int durationSeconds, string barcode)
         {
             try
             {
@@ -382,12 +481,6 @@ namespace PressureTimerApp
 
                     var timeSpan = TimeSpan.FromSeconds(durationSeconds);
                     UpdateStatus($"已启动计时器: {timerCode} | 条码: {barcode} | 时长: {durationSeconds}秒 ({timeSpan:hh\\:mm\\:ss})");
-
-                    // 在双输入框或三输入框模式下，将记录写入数据库
-                    if (_currentInputMode == InputMode.DoubleInput || _currentInputMode == InputMode.TripleInput)
-                    {
-                        SaveToDatabase(timerCode, barcode, timerCode2, durationSeconds);
-                    }
                 }
                 else
                 {
@@ -402,9 +495,10 @@ namespace PressureTimerApp
 
         private void SaveToDatabase(string timerCode1, string barcode, string timerCode2, int durationSeconds)
         {
-            if (!_databaseEnabled || _oracleDataAccess == null)
+            // 双重验证，确保工站有效
+            if (!_databaseEnabled || _oracleDataAccess == null || !_workstationValid)
             {
-                UpdateStatus("数据库未启用，跳过记录保存");
+                UpdateStatus("数据库未启用或工站配置无效，跳过记录保存");
                 return;
             }
 
@@ -414,21 +508,31 @@ namespace PressureTimerApp
                 {
                     Barcode = barcode,
                     TimerCode1 = timerCode1,
-                    TimerCode2 = timerCode2,
+                    TimerCode2 = timerCode2, // 三输入框模式下不为空，双输入框模式下为空
                     DurationSeconds = durationSeconds,
                     InputMode = _currentInputMode.ToString()
                 };
 
-                bool success = _oracleDataAccess.InsertTimerRecord(record);
+                bool success = _oracleDataAccess.InsertTimerRecord(record, _config.Workstation);
                 if (success)
                 {
-                    UpdateStatus($"记录已保存到数据库: {barcode} - {timerCode1}" +
-                                (string.IsNullOrEmpty(timerCode2) ? "" : $" - {timerCode2}"));
+                    string logMessage = $"记录已保存到数据库: {barcode} - {timerCode1}";
+                    if (!string.IsNullOrEmpty(timerCode2))
+                    {
+                        logMessage += $" 和 {timerCode2}";
+                    }
+                    logMessage += $" | 工站: {_config.Workstation} | 时长: {durationSeconds}秒 | 模式: {_currentInputMode}";
+
+                    UpdateStatus(logMessage);
                 }
                 else
                 {
-                    UpdateStatus("数据库记录保存失败");
+                    UpdateStatus("数据库记录保存失败，请检查数据库连接");
                 }
+            }
+            catch (OracleException oraEx)
+            {
+                UpdateStatus($"Oracle数据库错误: {oraEx.Message} (错误代码: {oraEx.Number})");
             }
             catch (Exception ex)
             {

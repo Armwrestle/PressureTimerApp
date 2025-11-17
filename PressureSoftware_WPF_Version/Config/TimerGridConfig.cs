@@ -8,8 +8,9 @@ namespace PressureTimerApp
 {
     public class DatabaseConfig
     {
-        public string ConnectionString { get; set; }
+        public string ConnectionString { get; set; } = "Data Source=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.220.200)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=YZMES)));User Id=HNMES;Password=HNMES123;";
         public string TableName { get; set; } = "R_KEY_PART_MATERIAL";
+        public string StationValidationTable { get; set; } = "TYPEDEFINITION";
     }
 
     public class TimerGridConfig
@@ -19,6 +20,7 @@ namespace PressureTimerApp
         public double TimerWidth { get; set; } = 80;
         public double TimerHeight { get; set; } = 40;
         public string DefaultInputMode { get; set; } = "General";
+        public string Workstation { get; set; } = "PRESSURE_01";
         public DatabaseConfig DatabaseConfig { get; set; } = new DatabaseConfig();
 
         public Dictionary<string, int> CustomDurations { get; set; } = new Dictionary<string, int>();
@@ -35,7 +37,19 @@ namespace PressureTimerApp
                 if (File.Exists(ConfigPath))
                 {
                     var json = File.ReadAllText(ConfigPath);
-                    return JsonSerializer.Deserialize<TimerGridConfig>(json);
+                    var config = JsonSerializer.Deserialize<TimerGridConfig>(json);
+
+                    // 如果配置中没有数据库连接字符串，使用默认值
+                    if (config.DatabaseConfig == null)
+                    {
+                        config.DatabaseConfig = new DatabaseConfig();
+                    }
+                    else if (string.IsNullOrEmpty(config.DatabaseConfig.ConnectionString))
+                    {
+                        config.DatabaseConfig.ConnectionString = new DatabaseConfig().ConnectionString;
+                    }
+
+                    return config;
                 }
                 else
                 {
@@ -78,11 +92,7 @@ namespace PressureTimerApp
                 TimerWidth = 80,
                 TimerHeight = 40,
                 DefaultInputMode = "General",
-                DatabaseConfig = new DatabaseConfig
-                {
-                    ConnectionString = "Data Source=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.220.200)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=YZMES)));User Id=HNMES;Password=HNMES123",
-                    TableName = "R_KEY_PART_MATERIAL"
-                },
+                DatabaseConfig = new DatabaseConfig(),
                 CustomDurations = new Dictionary<string, int>()
             };
 
