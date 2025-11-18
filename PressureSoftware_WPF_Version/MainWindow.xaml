@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="紧凑型倒计时系统" Height="800" Width="1200"
-        WindowState="Maximized">
+        WindowState="Maximized" Loaded="Window_Loaded">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -66,6 +66,13 @@
                     <TextBox x:Name="txtTimerCodeTriple2" Width="80" Height="25"
                             KeyDown="TxtTimerCodeTriple2_KeyDown"
                             ToolTip="格式: A-01, B-02, Z-13 等"/>
+                </StackPanel>
+
+                <!-- 工站顺序信息 -->
+                <StackPanel Orientation="Vertical" Margin="5">
+                    <TextBlock Text="工站顺序" FontWeight="Bold" Margin="0,0,0,2"/>
+                    <TextBlock x:Name="txtWorkstationSequence" Text="正在加载..." 
+                              VerticalAlignment="Center" Margin="5,0" Foreground="#2E8B57"/>
                 </StackPanel>
 
                 <!-- 倒计时信息 -->

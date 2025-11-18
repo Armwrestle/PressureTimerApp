@@ -18,6 +18,8 @@ namespace PressureTimerApp
         private bool _workstationValid = false;
         private WorkstationSequence _workstationSequence;
         private bool _enablePressureTimeValidation = false;
+        // 焦点管理状态
+        private bool _isBarcodeProcessed = false;
 
         private readonly Dictionary<string, TimerControl> _timerControls = new Dictionary<string, TimerControl>();
         private readonly Dictionary<char, LetterRow> _letterRows = new Dictionary<char, LetterRow>();
@@ -54,6 +56,49 @@ namespace PressureTimerApp
 
                 // 监听窗口大小变化
                 this.SizeChanged += MainWindow_SizeChanged;
+            }
+        }
+
+        // 窗口加载完成后设置初始焦点
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            InitializeInputFocus();
+        }
+
+        // 初始化输入焦点
+        private void InitializeInputFocus()
+        {
+            ResetInputFields();
+            SetInitialFocus();
+        }
+
+        // 重置所有输入框
+        private void ResetInputFields()
+        {
+            txtTimerCodeGeneral.Clear();
+            txtBarcodeDouble.Clear();
+            txtTimerCodeDouble.Clear();
+            txtBarcodeTriple.Clear();
+            txtTimerCodeTriple.Clear();
+            txtTimerCodeTriple2.Clear();
+
+            _isBarcodeProcessed = false;
+        }
+
+        // 设置初始焦点到条码输入框
+        private void SetInitialFocus()
+        {
+            switch (_currentInputMode)
+            {
+                case InputMode.General:
+                    txtTimerCodeGeneral.Focus();
+                    break;
+                case InputMode.DoubleInput:
+                    txtBarcodeDouble.Focus();
+                    break;
+                case InputMode.TripleInput:
+                    txtBarcodeTriple.Focus();
+                    break;
             }
         }
 
@@ -295,7 +340,7 @@ namespace PressureTimerApp
                 }
 
                 UpdateInputModeVisibility();
-                ClearInputFields();
+                InitializeInputFocus();
                 UpdateStatus($"已切换到 {item.Content} 模式");
             }
         }
@@ -339,7 +384,17 @@ namespace PressureTimerApp
         {
             if (e.Key == Key.Enter)
             {
-                StartTimerInDoubleInputMode();
+                string barcode = txtBarcodeDouble.Text.Trim();
+                if (!string.IsNullOrEmpty(barcode))
+                {
+                    _isBarcodeProcessed = true;
+                    txtTimerCodeDouble.Focus(); // 条码输入后焦点切换到计时器编码
+                    UpdateStatus($"条码已输入: {barcode}，请输入计时器编码");
+                }
+                else
+                {
+                    UpdateStatus("请输入条码");
+                }
             }
         }
 
@@ -348,6 +403,13 @@ namespace PressureTimerApp
         {
             if (e.Key == Key.Enter)
             {
+                if (!_isBarcodeProcessed)
+                {
+                    UpdateStatus("请先输入条码");
+                    txtBarcodeDouble.Focus();
+                    return;
+                }
+
                 StartTimerInDoubleInputMode();
             }
         }
@@ -357,7 +419,17 @@ namespace PressureTimerApp
         {
             if (e.Key == Key.Enter)
             {
-                StartTimerInTripleInputMode();
+                string barcode = txtBarcodeTriple.Text.Trim();
+                if (!string.IsNullOrEmpty(barcode))
+                {
+                    _isBarcodeProcessed = true;
+                    txtTimerCodeTriple.Focus(); // 条码输入后焦点切换到第一个计时器编码
+                    UpdateStatus($"条码已输入: {barcode}，请输入第一个计时器编码");
+                }
+                else
+                {
+                    UpdateStatus("请输入条码");
+                }
             }
         }
 
@@ -366,7 +438,22 @@ namespace PressureTimerApp
         {
             if (e.Key == Key.Enter)
             {
-                StartTimerInTripleInputMode();
+                if (!_isBarcodeProcessed)
+                {
+                    UpdateStatus("请先输入条码");
+                    txtBarcodeTriple.Focus();
+                    return;
+                }
+
+                string timerCode1 = txtTimerCodeTriple.Text.Trim().ToUpper();
+                if (string.IsNullOrEmpty(timerCode1))
+                {
+                    UpdateStatus("请输入第一个计时器编码");
+                    return;
+                }
+
+                txtTimerCodeTriple2.Focus(); // 第一个计时器编码输入后焦点切换到第二个计时器编码
+                UpdateStatus($"第一个计时器编码已输入: {timerCode1}，请输入第二个计时器编码");
             }
         }
 
@@ -375,6 +462,21 @@ namespace PressureTimerApp
         {
             if (e.Key == Key.Enter)
             {
+                if (!_isBarcodeProcessed)
+                {
+                    UpdateStatus("请先输入条码");
+                    txtBarcodeTriple.Focus();
+                    return;
+                }
+
+                string timerCode1 = txtTimerCodeTriple.Text.Trim().ToUpper();
+                if (string.IsNullOrEmpty(timerCode1))
+                {
+                    UpdateStatus("请输入第一个计时器编码");
+                    txtTimerCodeTriple.Focus();
+                    return;
+                }
+
                 StartTimerInTripleInputMode();
             }
         }
@@ -391,6 +493,8 @@ namespace PressureTimerApp
             }
 
             StartTimerByCode(timerCode, "", "");
+
+            // 通用模式：启动后重置输入框并保持焦点
             txtTimerCodeGeneral.Clear();
             txtTimerCodeGeneral.Focus();
         }
@@ -410,15 +514,18 @@ namespace PressureTimerApp
             // 验证时间管控（如果启用）
             if (!ValidatePressureTime(barcode))
             {
+                // 验证失败，重置输入框
+                ResetInputFields();
+                SetInitialFocus();
                 return; // 验证失败，不启动计时器
             }
 
             StartTimerByCode(timerCode, barcode, "");
-            txtTimerCodeDouble.Clear();
-            txtBarcodeDouble.Clear();
-            txtBarcodeDouble.Focus();
-        }
 
+            // 双输入框模式：启动后重置所有输入框，焦点回到条码输入框
+            ResetInputFields();
+            SetInitialFocus();
+        }
 
         // 三输入框模式启动计时器
         private void StartTimerInTripleInputMode()
@@ -436,6 +543,9 @@ namespace PressureTimerApp
             // 验证时间管控（如果启用）
             if (!ValidatePressureTime(barcode))
             {
+                // 验证失败，重置输入框
+                ResetInputFields();
+                SetInitialFocus();
                 return; // 验证失败，不启动计时器
             }
 
@@ -443,12 +553,14 @@ namespace PressureTimerApp
             if (!_positionMapper.IsValidCode(timerCode1))
             {
                 UpdateStatus($"无效的计时器编码: {timerCode1}");
+                txtTimerCodeTriple.Focus();
                 return;
             }
 
             if (!_positionMapper.IsValidCode(timerCode2))
             {
                 UpdateStatus($"无效的计时器编码: {timerCode2}");
+                txtTimerCodeTriple2.Focus();
                 return;
             }
 
@@ -470,10 +582,9 @@ namespace PressureTimerApp
             // 保存一条包含两个计时器信息的数据库记录
             SaveToDatabase(timerCode1, barcode, timerCode2, durationSeconds);
 
-            txtTimerCodeTriple.Clear();
-            txtTimerCodeTriple2.Clear();
-            txtBarcodeTriple.Clear();
-            txtBarcodeTriple.Focus();
+            // 三输入框模式：启动后重置所有输入框，焦点回到条码输入框
+            ResetInputFields();
+            SetInitialFocus();
         }
 
         // 验证保压时间
@@ -500,6 +611,10 @@ namespace PressureTimerApp
                     UpdateStatus($"✗ {message}");
                     MessageBox.Show($"时间管控验证失败:\n\n{message}", "验证失败",
                                   MessageBoxButton.OK, MessageBoxImage.Warning);
+
+                    // 管控错误后重置输入框
+                    ResetInputFields();
+                    SetInitialFocus();
                     return false;
                 }
             }
@@ -508,43 +623,63 @@ namespace PressureTimerApp
                 UpdateStatus($"时间验证过程中发生错误: {ex.Message}");
                 MessageBox.Show($"时间验证过程中发生错误:\n\n{ex.Message}", "验证错误",
                               MessageBoxButton.OK, MessageBoxImage.Error);
+
+                // 错误后重置输入框
+                ResetInputFields();
+                SetInitialFocus();
                 return false;
             }
         }
 
         private void StartTimerByCode(string timerCode, string barcode, string timerCode2)
         {
-            // 验证编码格式
-            if (!_positionMapper.IsValidCode(timerCode))
+            try
             {
-                UpdateStatus($"无效的计时器编码: {timerCode}");
-                return;
+                // 验证编码格式
+                if (!_positionMapper.IsValidCode(timerCode))
+                {
+                    UpdateStatus($"无效的计时器编码: {timerCode}");
+                    // 编码错误后重置输入框
+                    ResetInputFields();
+                    SetInitialFocus();
+                    return;
+                }
+
+                // 解析位置信息
+                var position = _positionMapper.GetPosition(timerCode);
+                if (position == null || !position.IsValid)
+                {
+                    UpdateStatus($"无效的计时器位置: {timerCode}");
+                    // 位置错误后重置输入框
+                    ResetInputFields();
+                    SetInitialFocus();
+                    return;
+                }
+
+                // 获取目标时长（秒）
+                int durationSeconds = _config.TimerDurationSeconds;
+
+                // 检查是否有自定义时长
+                if (_config.CustomDurations != null && _config.CustomDurations.ContainsKey(timerCode))
+                {
+                    durationSeconds = _config.CustomDurations[timerCode];
+                }
+
+                // 启动计时器
+                StartTimerAtPosition(timerCode, durationSeconds, barcode);
+
+                // 只有在双输入框模式下才保存数据库记录（三输入框模式在外部处理）
+                if (_currentInputMode == InputMode.DoubleInput)
+                {
+                    SaveToDatabase(timerCode, barcode, timerCode2, durationSeconds);
+                }
             }
-
-            // 解析位置信息
-            var position = _positionMapper.GetPosition(timerCode);
-            if (position == null || !position.IsValid)
+            catch (Exception ex)
             {
-                UpdateStatus($"无效的计时器位置: {timerCode}");
-                return;
-            }
-
-            // 获取目标时长（秒）
-            int durationSeconds = _config.TimerDurationSeconds;
-
-            // 检查是否有自定义时长
-            if (_config.CustomDurations != null && _config.CustomDurations.ContainsKey(timerCode))
-            {
-                durationSeconds = _config.CustomDurations[timerCode];
-            }
-
-            // 启动计时器
-            StartTimerAtPosition(timerCode, durationSeconds, barcode);
-
-            // 只有在双输入框模式下才保存数据库记录（三输入框模式在外部处理）
-            if (_currentInputMode == InputMode.DoubleInput)
-            {
-                SaveToDatabase(timerCode, barcode, timerCode2, durationSeconds);
+                UpdateStatus($"启动计时器失败: {ex.Message}");
+                // 启动失败后重置输入框
+                ResetInputFields();
+                SetInitialFocus();
             }
         }
 
@@ -568,20 +703,31 @@ namespace PressureTimerApp
                 else
                 {
                     UpdateStatus($"未找到计时器位置: {timerCode}");
+                    // 位置未找到后重置输入框
+                    ResetInputFields();
+                    SetInitialFocus();
                 }
             }
             catch (Exception ex)
             {
                 UpdateStatus($"启动计时器失败: {ex.Message}");
+                // 启动失败后重置输入框
+                ResetInputFields();
+                SetInitialFocus();
             }
         }
 
         private void SaveToDatabase(string timerCode1, string barcode, string timerCode2, int durationSeconds)
         {
-            // 双重验证，确保工站有效
-            if (!_databaseEnabled || _oracleDataAccess == null || !_workstationValid)
+            if (!_databaseEnabled || _oracleDataAccess == null)
             {
-                UpdateStatus("数据库未启用或工站配置无效，跳过记录保存");
+                UpdateStatus("数据库未启用，跳过记录保存");
+                return;
+            }
+
+            if (!_workstationValid)
+            {
+                UpdateStatus("工站配置无效，无法保存记录到数据库");
                 return;
             }
 
@@ -611,15 +757,24 @@ namespace PressureTimerApp
                 else
                 {
                     UpdateStatus("数据库记录保存失败，请检查数据库连接");
+                    // 数据库保存失败后重置输入框
+                    ResetInputFields();
+                    SetInitialFocus();
                 }
             }
             catch (OracleException oraEx)
             {
                 UpdateStatus($"Oracle数据库错误: {oraEx.Message} (错误代码: {oraEx.Number})");
+                // 数据库错误后重置输入框
+                ResetInputFields();
+                SetInitialFocus();
             }
             catch (Exception ex)
             {
                 UpdateStatus($"保存到数据库时出错: {ex.Message}");
+                // 保存错误后重置输入框
+                ResetInputFields();
+                SetInitialFocus();
             }
         }
 
