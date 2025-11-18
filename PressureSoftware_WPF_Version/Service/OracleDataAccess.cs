@@ -48,7 +48,7 @@ namespace PressureTimerApp
                              AREANAME, EVENTNAME, EVENTTIMEKEY, MATERIALPOSITION, ATTRIBUTE2, ATTRIBUTE3)
                             VALUES 
                             (:Barcode, :TimerCode1, :TimerCode2, 'ZJ', 'HN_ASSY', :Workstation, 
-                             'PRESSURE', TO_CHAR(SYSDATE,'YYYY/MM/DD_HH24:MI:SS'), '3', :DurationSeconds, :StartTime)";
+                             'PRESSURE', TO_CHAR(SYSDATE,'YYYY/MM/DD HH24:MI:SS'), '3', :DurationSeconds, :StartTime)";
 
                         using (var command = new OracleCommand(sql, connection))
                         {
@@ -72,7 +72,7 @@ namespace PressureTimerApp
                              AREANAME, EVENTNAME, EVENTTIMEKEY, MATERIALPOSITION, ATTRIBUTE2, ATTRIBUTE3)
                             VALUES 
                             (:Barcode, :TimerCode1, 'ZJ', 'HN_ASSY', :Workstation, 
-                             'PRESSURE', TO_CHAR(SYSDATE,'YYYY/MM/DD_HH24:MI:SS'), '3', :DurationSeconds, :StartTime)";
+                             'PRESSURE', TO_CHAR(SYSDATE,'YYYY/MM/DD HH24:MI:SS'), '3', :DurationSeconds, :StartTime)";
 
                         using (var command = new OracleCommand(sql, connection))
                         {
@@ -413,10 +413,10 @@ namespace PressureTimerApp
                     connection.Open();
 
                     string sql = @"
-                        SELECT LOTNAME, AREANAME, ATTRIBUTE2, ATTRIBUTE3, CREATE_TIME 
+                        SELECT LOTNAME, AREANAME, ATTRIBUTE2, ATTRIBUTE3, EVENTTIMEKEY 
                         FROM R_KEY_PART_MATERIAL 
                         WHERE LOTNAME = :Barcode AND AREANAME = :PreviousWorkstation 
-                        ORDER BY CREATE_TIME DESC";
+                        ORDER BY EVENTTIMEKEY DESC";
 
                     using (var command = new OracleCommand(sql, connection))
                     {
@@ -443,7 +443,7 @@ namespace PressureTimerApp
 
                                 // 解析创建时间
                                 DateTime createTime = DateTime.Now;
-                                if (DateTime.TryParse(reader["CREATE_TIME"]?.ToString(), out DateTime crTime))
+                                if (DateTime.TryParse(reader["EVENTTIMEKEY"]?.ToString(), out DateTime crTime))
                                 {
                                     createTime = crTime;
                                 }
