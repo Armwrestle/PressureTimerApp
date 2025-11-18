@@ -16,6 +16,8 @@ namespace PressureTimerApp
         private OracleDataAccess _oracleDataAccess;
         private bool _databaseEnabled = false;
         private bool _workstationValid = false;
+        private WorkstationSequence _workstationSequence;
+        private bool _enablePressureTimeValidation = false;
 
         private readonly Dictionary<string, TimerControl> _timerControls = new Dictionary<string, TimerControl>();
         private readonly Dictionary<char, LetterRow> _letterRows = new Dictionary<char, LetterRow>();
@@ -79,29 +81,61 @@ namespace PressureTimerApp
                             _databaseEnabled = true;
                             UpdateStatus($"数据库表 {_config.DatabaseConfig.TableName} 准备就绪");
 
-                            // 验证工站配置 - 如果验证失败，直接结束程序
+                            // 验证工站配置
                             ValidateWorkstation();
+
+                            // 获取工站顺序配置
+                            InitializeWorkstationSequence();
                         }
                         else
                         {
-                            UpdateStatus("数据库表创建失败，数据库记录功能将不可用");
+                            ShowErrorAndExit("数据库表创建失败，程序无法正常运行");
                         }
                     }
                     else
                     {
-                        UpdateStatus("数据库连接测试失败，请检查连接字符串和网络连接");
+                        ShowErrorAndExit("数据库连接测试失败，请检查连接字符串和网络连接");
                     }
                 }
                 else
                 {
-                    UpdateStatus("未配置数据库连接，数据库记录功能将不可用");
+                    ShowErrorAndExit("未配置数据库连接，程序无法正常运行");
                 }
             }
             catch (Exception ex)
             {
-                UpdateStatus($"数据库初始化失败: {ex.Message}");
+                ShowErrorAndExit($"数据库初始化失败: {ex.Message}");
             }
         }
+
+        // 初始化工站顺序配置 - 在 InitializeWorkstationSequence 方法中添加界面更新
+        private void InitializeWorkstationSequence()
+        {
+            try
+            {
+                _workstationSequence = _oracleDataAccess.GetWorkstationSequence(_config.Workstation);
+
+                if (_workstationSequence.HasPreviousStation)
+                {
+                    _enablePressureTimeValidation = true;
+                    txtWorkstationSequence.Text = $"{_workstationSequence.PreviousWorkstation} → {_workstationSequence.CurrentWorkstation}";
+                    UpdateStatus($"工站顺序配置: {_workstationSequence} - 启用时间验证");
+                }
+                else
+                {
+                    _enablePressureTimeValidation = false;
+                    txtWorkstationSequence.Text = $"{_workstationSequence.CurrentWorkstation} (初始站点)";
+                    UpdateStatus($"工站顺序配置: {_workstationSequence} - 无需时间验证");
+                }
+            }
+            catch (Exception ex)
+            {
+                _enablePressureTimeValidation = false;
+                txtWorkstationSequence.Text = "配置加载失败";
+                UpdateStatus($"工站顺序配置初始化失败: {ex.Message} - 将禁用时间验证");
+            }
+        }
+
 
         private void ValidateWorkstation()
         {
@@ -373,11 +407,18 @@ namespace PressureTimerApp
                 return;
             }
 
+            // 验证时间管控（如果启用）
+            if (!ValidatePressureTime(barcode))
+            {
+                return; // 验证失败，不启动计时器
+            }
+
             StartTimerByCode(timerCode, barcode, "");
             txtTimerCodeDouble.Clear();
             txtBarcodeDouble.Clear();
             txtBarcodeDouble.Focus();
         }
+
 
         // 三输入框模式启动计时器
         private void StartTimerInTripleInputMode()
@@ -390,6 +431,12 @@ namespace PressureTimerApp
             {
                 UpdateStatus("请输入条码和两个计时器编码");
                 return;
+            }
+
+            // 验证时间管控（如果启用）
+            if (!ValidatePressureTime(barcode))
+            {
+                return; // 验证失败，不启动计时器
             }
 
             // 验证两个计时器编码
@@ -427,6 +474,42 @@ namespace PressureTimerApp
             txtTimerCodeTriple2.Clear();
             txtBarcodeTriple.Clear();
             txtBarcodeTriple.Focus();
+        }
+
+        // 验证保压时间
+        private bool ValidatePressureTime(string barcode)
+        {
+            if (!_enablePressureTimeValidation || !_workstationSequence.HasPreviousStation)
+            {
+                return true; // 不需要验证
+            }
+
+            try
+            {
+                UpdateStatus($"正在验证条码 {barcode} 在工站 {_workstationSequence} 的时间管控...");
+
+                var (isValid, message) = _oracleDataAccess.ValidatePressureTime(barcode, _workstationSequence, _config.TimerDurationSeconds);
+
+                if (isValid)
+                {
+                    UpdateStatus($"✓ {message}");
+                    return true;
+                }
+                else
+                {
+                    UpdateStatus($"✗ {message}");
+                    MessageBox.Show($"时间管控验证失败:\n\n{message}", "验证失败",
+                                  MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                UpdateStatus($"时间验证过程中发生错误: {ex.Message}");
+                MessageBox.Show($"时间验证过程中发生错误:\n\n{ex.Message}", "验证错误",
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
         }
 
         private void StartTimerByCode(string timerCode, string barcode, string timerCode2)
