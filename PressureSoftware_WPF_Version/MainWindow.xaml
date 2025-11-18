@@ -68,13 +68,6 @@
                             ToolTip="格式: A-01, B-02, Z-13 等"/>
                 </StackPanel>
 
-                <!-- 工站顺序信息 -->
-                <StackPanel Orientation="Vertical" Margin="5">
-                    <TextBlock Text="工站顺序" FontWeight="Bold" Margin="0,0,0,2"/>
-                    <TextBlock x:Name="txtWorkstationSequence" Text="正在加载..." 
-                              VerticalAlignment="Center" Margin="5,0" Foreground="#2E8B57"/>
-                </StackPanel>
-
                 <!-- 倒计时信息 -->
                 <StackPanel Orientation="Vertical" Margin="5">
                     <TextBlock Text="倒计时设置" FontWeight="Bold" Margin="0,0,0,2"/>
@@ -89,7 +82,7 @@
                               VerticalAlignment="Center" Margin="5,0"/>
                 </StackPanel>
 
-                <!-- 在输入控制面板中添加工站顺序信息显示 -->
+                <!-- 工站顺序信息 -->
                 <StackPanel Orientation="Vertical" Margin="5">
                     <TextBlock Text="工站顺序" FontWeight="Bold" Margin="0,0,0,2"/>
                     <TextBlock x:Name="txtWorkstationSequence" Text="正在加载..." 
