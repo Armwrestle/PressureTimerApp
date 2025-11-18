@@ -1,6 +1,19 @@
-﻿//通用模式：General;双输入框模式：DoubleInput;三输入框模式：TripleInput
-  //"CustomDurations": {
-  //  "A-01": 1800,
-  //  "A-02": 2700,
-  //  "B-01": 7200
-  //}
+﻿//以下为timerConfig.json各项配置的说明
+{
+  "Columns": 5, --自动生成 5 * 2 = 10 列
+  "TimerDurationSeconds": 3600, --倒计时3600秒
+  "TimerWidth": 80,
+  "TimerHeight": 40,
+  "DefaultInputMode": "General", --默认加载时的输入模式
+  "Workstation": "L_MIDDLEFRAME_PRESSURE", --默认当前工站
+}
+
+通用模式：General;双输入框模式：DoubleInput;三输入框模式：TripleInput
+
+工站配置(PRESSURE_CONFIG),工站顺序配置（PRESSURE_AREA_CONFIG）
+
+//"CustomDurations": {
+//  "A-01": 1800,
+//  "A-02": 2700,
+//  "B-01": 7200
+//}
