@@ -32,6 +32,8 @@ namespace PressureTimerApp
             TripleInput
         }
 
+        private List<string> InputModeSequence = new List<string>{ "General", "DoubleInput", "TripleInput" };
+
         private InputMode _currentInputMode = InputMode.General;
 
         public MainWindow()
@@ -51,7 +53,7 @@ namespace PressureTimerApp
                 InitializeTimerGrid();
 
                 // 设置默认输入模式
-                cmbInputMode.SelectedIndex = 0;
+                cmbInputMode.SelectedIndex = InputModeSequence.IndexOf(_config.DefaultInputMode);
                 UpdateInputModeVisibility();
 
                 // 监听窗口大小变化
