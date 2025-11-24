@@ -3,7 +3,7 @@
   "TimerDurationSeconds": 3600,
   "TimerWidth": 80,
   "TimerHeight": 40,
-  "DefaultInputMode": "General",
+  "DefaultInputMode": "DoubleInput",
   "Workstation": "L_MIDDLEFRAME_PRESSURE",
   "DatabaseConfig": {
     "ConnectionString": "Data Source=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.220.200)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=YZMES)));User Id=HNMES;Password=HNMES123",
