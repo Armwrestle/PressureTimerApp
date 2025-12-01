@@ -12,6 +12,7 @@ namespace PressureTimerApp
         private string _barcode;
         private string _timerCode;
         private string _displayText;
+        private Brush _statusColor = Brushes.LightGray;
 
         public CountdownTimer Timer => _timer;
 
@@ -32,6 +33,7 @@ namespace PressureTimerApp
             {
                 _timerCode = value;
                 UpdateDisplayText();
+                UpdateStatusColor();
             }
         }
 
@@ -47,24 +49,11 @@ namespace PressureTimerApp
 
         public Brush StatusColor
         {
-            get
+            get => _statusColor;
+            private set
             {
-                if (_timer == null) return Brushes.LightGray;
-
-                // 使用传统的 switch 语句替代 C# 8.0 的 switch 表达式
-                switch (_timer.Status)
-                {
-                    case "运行中":
-                        return new SolidColorBrush(Color.FromRgb(144, 238, 144)); // 浅绿色
-                    case "已暂停":
-                        return new SolidColorBrush(Color.FromRgb(255, 215, 0));   // 黄色
-                    case "已完成":
-                        return new SolidColorBrush(Color.FromRgb(50, 205, 50));   // 绿色
-                    case "已停止":
-                        return Brushes.LightGray;
-                    default:
-                        return Brushes.LightGray;
-                }
+                _statusColor = value;
+                OnPropertyChanged(nameof(StatusColor));
             }
         }
 
@@ -90,6 +79,7 @@ namespace PressureTimerApp
             _timer.PropertyChanged += OnTimerPropertyChanged;
 
             UpdateDisplayText();
+            UpdateStatusColor();
         }
 
         public void Start()
@@ -105,30 +95,80 @@ namespace PressureTimerApp
         private void OnTimerTick(CountdownTimer timer, int remainingSeconds)
         {
             UpdateDisplayText();
+            UpdateStatusColor();
         }
 
         private void OnTimerCompleted(CountdownTimer timer)
         {
             UpdateDisplayText();
+            UpdateStatusColor();
+
+            // 播放完成提示音
+            try
+            {
+                System.Media.SystemSounds.Exclamation.Play();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"播放提示音失败: {ex.Message}");
+            }
         }
 
         private void OnTimerPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             UpdateDisplayText();
-            OnPropertyChanged(nameof(StatusColor));
+            UpdateStatusColor();
         }
 
         private void UpdateDisplayText()
         {
-            if (_timer != null && _timer.IsRunning)
+            if (_timer == null)
+            {
+                DisplayText = TimerCode;
+                return;
+            }
+
+            if (_timer.IsRunning)
             {
                 // 运行中：显示剩余时间
                 DisplayText = _timer.RemainingTimeFormatted;
+            }
+            else if (_timer.IsCompleted)
+            {
+                // 已完成：显示"完成"和编码
+                DisplayText = $"完成\n{TimerCode}";
             }
             else
             {
                 // 未运行：显示编码
                 DisplayText = TimerCode;
+            }
+        }
+
+        private void UpdateStatusColor()
+        {
+            if (_timer == null)
+            {
+                StatusColor = Brushes.LightGray;
+                return;
+            }
+
+            // 优先检查是否完成
+            if (_timer.IsCompleted)
+            {
+                StatusColor = new SolidColorBrush(Color.FromRgb(255, 99, 71)); // 番茄红色
+            }
+            else if (_timer.IsRunning)
+            {
+                StatusColor = new SolidColorBrush(Color.FromRgb(144, 238, 144)); // 浅绿色
+            }
+            else if (_timer.IsPaused)
+            {
+                StatusColor = new SolidColorBrush(Color.FromRgb(255, 215, 0));   // 黄色
+            }
+            else
+            {
+                StatusColor = Brushes.LightGray; // 已停止
             }
         }
 

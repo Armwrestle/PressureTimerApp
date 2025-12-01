@@ -701,11 +701,23 @@ namespace PressureTimerApp
 
                     var timeSpan = TimeSpan.FromSeconds(durationSeconds);
                     UpdateStatus($"已启动计时器: {timerCode} | 条码: {barcode} | 时长: {durationSeconds}秒 ({timeSpan:hh\\:mm\\:ss})");
+
+                    // 监听完成事件
+                    timerControl.Timer.TimerCompleted += (sender) =>
+                    {
+                        UpdateStatus($"计时器完成: {timerCode} | 条码: {barcode}");
+
+                        // 可以添加更明显的提示
+                        //if (MessageBox.Show($"计时器 {timerCode} 已完成！", "计时器完成",
+                        //    MessageBoxButton.OK, MessageBoxImage.Information) == MessageBoxResult.OK)
+                        //{
+                        //    // 用户确认后可以执行其他操作
+                        //}
+                    };
                 }
                 else
                 {
                     UpdateStatus($"未找到计时器位置: {timerCode}");
-                    // 位置未找到后重置输入框
                     ResetInputFields();
                     SetInitialFocus();
                 }
@@ -713,7 +725,6 @@ namespace PressureTimerApp
             catch (Exception ex)
             {
                 UpdateStatus($"启动计时器失败: {ex.Message}");
-                // 启动失败后重置输入框
                 ResetInputFields();
                 SetInitialFocus();
             }

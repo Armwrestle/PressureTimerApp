@@ -9,11 +9,32 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- 只显示编码和倒计时 -->
+            <!-- 显示编码和状态 -->
             <TextBlock Text="{Binding DisplayText, Mode=OneWay}" 
                       FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Foreground="#333333" FontWeight="Bold" 
-                      TextAlignment="Center" TextWrapping="Wrap"/>
+                      FontWeight="Bold" 
+                      TextAlignment="Center" TextWrapping="Wrap"
+                      TextTrimming="CharacterEllipsis">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Style.Triggers>
+                            <!-- 完成时使用白色文字 -->
+                            <DataTrigger Binding="{Binding Timer.IsCompleted}" Value="True">
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                            </DataTrigger>
+                            <!-- 运行中时使用黑色文字 -->
+                            <DataTrigger Binding="{Binding Timer.IsRunning}" Value="True">
+                                <Setter Property="Foreground" Value="Black"/>
+                            </DataTrigger>
+                            <!-- 其他状态使用深灰色文字 -->
+                            <DataTrigger Binding="{Binding Timer.IsRunning}" Value="False">
+                                <Setter Property="Foreground" Value="#333333"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
         </Grid>
     </Border>
 </UserControl>

@@ -1,6 +1,6 @@
 ﻿{
   "Columns": 5,
-  "TimerDurationSeconds": 3600,
+  "TimerDurationSeconds": 5,
   "TimerWidth": 80,
   "TimerHeight": 40,
   "DefaultInputMode": "TripleInput",
