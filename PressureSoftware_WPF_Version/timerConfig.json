@@ -3,8 +3,8 @@
   "TimerDurationSeconds": 5,
   "TimerWidth": 80,
   "TimerHeight": 40,
-  "DefaultInputMode": "TripleInput",
-  "Workstation": "L_LB_PRESSURE",
+  "DefaultInputMode": "DoubleInput",
+  "Workstation": "L_MIDDLEFRAME_PRESSURE",
   "DatabaseConfig": {
     "ConnectionString": "Data Source=(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.220.200)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=YZMES)));User Id=HNMES;Password=HNMES123",
     "TableName": "R_KEY_PART_MATERIAL",
