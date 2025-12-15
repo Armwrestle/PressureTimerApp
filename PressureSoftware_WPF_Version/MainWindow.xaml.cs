@@ -386,7 +386,7 @@ namespace PressureTimerApp
         {
             if (e.Key == Key.Enter)
             {
-                string barcode = txtBarcodeDouble.Text.Trim();
+                string barcode = txtBarcodeDouble.Text.Trim().ToUpper();
                 if (!string.IsNullOrEmpty(barcode))
                 {
                     _isBarcodeProcessed = true;
@@ -421,7 +421,7 @@ namespace PressureTimerApp
         {
             if (e.Key == Key.Enter)
             {
-                string barcode = txtBarcodeTriple.Text.Trim();
+                string barcode = txtBarcodeTriple.Text.Trim().ToUpper();
                 if (!string.IsNullOrEmpty(barcode))
                 {
                     _isBarcodeProcessed = true;
@@ -505,7 +505,7 @@ namespace PressureTimerApp
         private void StartTimerInDoubleInputMode()
         {
             string timerCode = txtTimerCodeDouble.Text.Trim().ToUpper();
-            string barcode = txtBarcodeDouble.Text.Trim();
+            string barcode = txtBarcodeDouble.Text.Trim().ToUpper();
 
             if (string.IsNullOrEmpty(timerCode) || string.IsNullOrEmpty(barcode))
             {
@@ -534,7 +534,7 @@ namespace PressureTimerApp
         {
             string timerCode1 = txtTimerCodeTriple.Text.Trim().ToUpper();
             string timerCode2 = txtTimerCodeTriple2.Text.Trim().ToUpper();
-            string barcode = txtBarcodeTriple.Text.Trim();
+            string barcode = txtBarcodeTriple.Text.Trim().ToUpper();
 
             if (string.IsNullOrEmpty(timerCode1) || string.IsNullOrEmpty(timerCode2) || string.IsNullOrEmpty(barcode))
             {
